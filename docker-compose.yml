@@ -81,7 +81,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP: kafka:9092
       SOLANA_ENABLED: ${SOLANA_ENABLED:-true}
-      MASTODON_ENABLED: ${MASTODON_ENABLED:-true}
+      BLUESKY_ENABLED: ${BLUESKY_ENABLED:-true}
       WIKIPEDIA_ENABLED: ${WIKIPEDIA_ENABLED:-true}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-velocity_pass}

@@ -166,9 +166,9 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
       <div class="m-latest" id="sol-latest">Waiting…</div>
     </div>
     <div class="meter m-mast">
-      <div class="m-label">Mastodon · Social · MEDIUM velocity</div>
+      <div class="m-label">Bluesky · Social · VERY HIGH velocity</div>
       <div class="m-eps"><span id="mast-eps">0.0</span><span class="m-unit"> events/sec</span></div>
-      <div class="m-total">Total: <strong id="mast-total">0</strong> &nbsp;·&nbsp; topic: <code style="color:var(--amber);font-size:.9em">velocity.mastodon</code></div>
+      <div class="m-total">Total: <strong id="mast-total">0</strong> &nbsp;·&nbsp; topic: <code style="color:var(--amber);font-size:.9em">velocity.bluesky</code></div>
       <div class="bar-track"><div class="bar-fill" id="mast-bar" style="width:0%"></div></div>
       <div class="m-latest" id="mast-latest">Waiting…</div>
     </div>
@@ -219,9 +219,9 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
           <span class="a-lag lag-ok" id="sol-lag">—</span>
         </div>
       </div>
-      <!-- velocity.mastodon topic card -->
+      <!-- velocity.bluesky topic card -->
       <div class="a-card a-mast">
-        <div class="a-label">velocity.mastodon <span class="tip" data-tip="A Kafka topic is a named, ordered log of messages. Producers write to it; consumers read from it.">ⓘ</span></div>
+        <div class="a-label">velocity.bluesky <span class="tip" data-tip="A Kafka topic is a named, ordered log of messages. Producers write to it; consumers read from it.">ⓘ</span></div>
         <div class="a-row">
           <span class="a-key">Partition <span class="tip" data-tip="Topics are split into partitions for parallel processing. Each partition is an independent ordered log. This demo uses 1 partition per topic.">ⓘ</span></span>
           <span class="a-val" id="mast-partition">0</span>
@@ -280,7 +280,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
         <div class="ch-src-bar"><div class="ch-src-fill" id="ch-sol-bar" style="width:0%"></div></div>
       </div>
       <div class="ch-src ch-mast">
-        <div class="ch-src-label">velocity.mastodon</div>
+        <div class="ch-src-label">velocity.bluesky</div>
         <div class="ch-src-count" id="ch-mast">0</div>
         <div style="font-size:0.55em;color:var(--mu);font-family:var(--mono)">rows in DB</div>
         <div class="ch-src-bar"><div class="ch-src-fill" id="ch-mast-bar" style="width:0%"></div></div>
@@ -308,7 +308,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
     <div class="panel">
       <div class="panel-title">Relative Velocity (log scale)</div>
       <div class="cmp-row r-sol"><span class="cmp-name">Solana</span><div class="cmp-track"><div class="cmp-fill" id="cb-sol" style="width:0%"></div></div><span class="cmp-val" id="cv-sol">0.0/s</span></div>
-      <div class="cmp-row r-mast"><span class="cmp-name">Mastodon</span><div class="cmp-track"><div class="cmp-fill" id="cb-mast" style="width:0%"></div></div><span class="cmp-val" id="cv-mast">0.0/s</span></div>
+      <div class="cmp-row r-mast"><span class="cmp-name">Bluesky</span><div class="cmp-track"><div class="cmp-fill" id="cb-mast" style="width:0%"></div></div><span class="cmp-val" id="cv-mast">0.0/s</span></div>
       <div class="cmp-row r-wiki"><span class="cmp-name">Wikipedia</span><div class="cmp-track"><div class="cmp-fill" id="cb-wiki" style="width:0%"></div></div><span class="cmp-val" id="cv-wiki">0.0/s</span></div>
       <div class="ratio-box"><div class="ratio-n" id="ratio">—</div><div class="ratio-l">Solana : Wikipedia velocity ratio</div></div>
     </div>
@@ -317,7 +317,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
       <h3>Open Kafka UI to see the anatomy →</h3>
       <div class="kafka-links">
         <a href="http://localhost:8080/ui/clusters/velocity-showdown/topics" target="_blank" class="klink">
-          <div class="klink-left"><span class="klink-name">Topics</span><span class="klink-desc">velocity.solana · velocity.mastodon · velocity.wikipedia</span></div>
+          <div class="klink-left"><span class="klink-name">Topics</span><span class="klink-desc">velocity.solana · velocity.bluesky · velocity.wikipedia</span></div>
           <span class="klink-arrow">→</span>
         </a>
         <a href="http://localhost:8080/ui/clusters/velocity-showdown/brokers" target="_blank" class="klink">
@@ -341,7 +341,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
         <div class="feed-scroll" id="feed-sol"></div>
       </div>
       <div class="feed-col fc-mast">
-        <div class="feed-title">velocity.mastodon</div>
+        <div class="feed-title">velocity.bluesky</div>
         <div class="feed-scroll" id="feed-mast"></div>
       </div>
       <div class="feed-col fc-wiki">
@@ -428,20 +428,20 @@ function $w(id,p)  { const e=document.getElementById(id); if(e) e.style.width=p+
 
 function update(data) {
   const s = data.sources;
-  const se = s.solana.eps||0, me = s.mastodon.eps||0, we = s.wikipedia.eps||0;
+  const se = s.solana.eps||0, me = s.bluesky.eps||0, we = s.wikipedia.eps||0;
   maxEps = Math.max(maxEps, se, me, we, .01);
   $t('sol-eps',  se.toFixed(1)); $t('mast-eps', me.toFixed(1)); $t('wiki-eps', we.toFixed(1));
-  $t('sol-total', fmt(s.solana.total)); $t('mast-total', fmt(s.mastodon.total)); $t('wiki-total', fmt(s.wikipedia.total));
+  $t('sol-total', fmt(s.solana.total)); $t('mast-total', fmt(s.bluesky.total)); $t('wiki-total', fmt(s.wikipedia.total));
   $w('sol-bar', logBar(se)); $w('mast-bar', logBar(me)); $w('wiki-bar', logBar(we));
   if((s.solana.recent||[])[0])    $t('sol-latest',  s.solana.recent[0]);
-  if((s.mastodon.recent||[])[0])  $t('mast-latest', s.mastodon.recent[0]);
+  if((s.bluesky.recent||[])[0])   $t('mast-latest', s.bluesky.recent[0]);
   if((s.wikipedia.recent||[])[0]) $t('wiki-latest', s.wikipedia.recent[0]);
   $w('cb-sol', logBar(se)); $w('cb-mast', logBar(me)); $w('cb-wiki', logBar(we));
   $t('cv-sol', se.toFixed(1)+'/s'); $t('cv-mast', me.toFixed(1)+'/s'); $t('cv-wiki', we.toFixed(1)+'/s');
   const ratioEl = document.getElementById('ratio');
   if(ratioEl) ratioEl.textContent = we>0&&se>0 ? Math.round(se/we)+'×' : se>0 ? '∞' : '—';
   feed('feed-sol',  s.solana.recent||[]);
-  feed('feed-mast', s.mastodon.recent||[]);
+  feed('feed-mast', s.bluesky.recent||[]);
   feed('feed-wiki', s.wikipedia.recent||[]);
 }
 
@@ -488,7 +488,7 @@ function updateAnatomy(meta) {
   }
   const map = {
     'velocity.solana':    'sol',
-    'velocity.mastodon':  'mast',
+    'velocity.bluesky':   'mast',
     'velocity.wikipedia': 'wiki',
   };
   const topics = meta.topics || {};
@@ -510,7 +510,7 @@ function updateCh(d) {
   if (!d) return;
   const by  = d.by_source || {};
   const sol  = by.solana    || 0;
-  const mast = by.mastodon  || 0;
+  const mast = by.bluesky   || 0;
   const wiki = by.wikipedia || 0;
   const total = d.total || 0;
 

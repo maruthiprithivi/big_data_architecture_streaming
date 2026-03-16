@@ -5,11 +5,15 @@ Connects to three live, free public data streams and produces
 events to Kafka topics so students can see the anatomy live.
 
 Topics produced:
-  velocity.solana    → ~2.5 events/sec  [HIGH velocity]
-  velocity.mastodon  → ~1-3 events/sec  [MEDIUM velocity]
-  velocity.wikipedia → ~0.3 events/sec  [LOW velocity]
+  velocity.solana    → ~2.5 events/sec   [HIGH velocity]
+  velocity.bluesky   → ~20-30 events/sec [VERY HIGH velocity]
+  velocity.wikipedia → ~0.3 events/sec   [LOW velocity]
 
 No API keys required. All sources are publicly accessible.
+Streaming protocols used:
+  Solana    → HTTP RPC polling (JSON-RPC over HTTPS)
+  Bluesky   → WebSocket firehose (Jetstream)
+  Wikipedia → Server-Sent Events (SSE)
 """
 
 import asyncio, json, os, re, time
@@ -27,12 +31,12 @@ from fastapi.middleware.cors import CORSMiddleware
 # ── Config ─────────────────────────────────────────────────────
 KAFKA_BOOTSTRAP   = os.getenv("KAFKA_BOOTSTRAP",   "localhost:9092")
 SOLANA_ENABLED    = os.getenv("SOLANA_ENABLED",    "true").lower() == "true"
-MASTODON_ENABLED  = os.getenv("MASTODON_ENABLED",  "true").lower() == "true"
+BLUESKY_ENABLED   = os.getenv("BLUESKY_ENABLED",   "true").lower() == "true"
 WIKIPEDIA_ENABLED = os.getenv("WIKIPEDIA_ENABLED", "true").lower() == "true"
 
-SOLANA_RPC       = "https://api.mainnet-beta.solana.com"
-MASTODON_REST    = "https://fosstodon.org/api/v1/timelines/public"
-WIKI_SSE         = "https://stream.wikimedia.org/v2/stream/recentchange"
+SOLANA_RPC         = "https://api.mainnet-beta.solana.com"
+BLUESKY_JETSTREAM  = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
+WIKI_SSE           = "https://stream.wikimedia.org/v2/stream/recentchange"
 
 # ClickHouse HTTP interface for stats queries
 CH_HOST = os.getenv("CLICKHOUSE_HOST",    "clickhouse")
@@ -41,7 +45,7 @@ CH_HTTP = f"http://{CH_HOST}:8123/"
 
 TOPICS = {
     "solana":    "velocity.solana",
-    "mastodon":  "velocity.mastodon",
+    "bluesky":   "velocity.bluesky",
     "wikipedia": "velocity.wikipedia",
 }
 
@@ -53,7 +57,7 @@ state = {
     "start_time": None,
     "sources": {
         "solana":    {"total": 0, "ts": deque(maxlen=200), "recent": deque(maxlen=15), "running": False},
-        "mastodon":  {"total": 0, "ts": deque(maxlen=200), "recent": deque(maxlen=15), "running": False},
+        "bluesky":   {"total": 0, "ts": deque(maxlen=200), "recent": deque(maxlen=15), "running": False},
         "wikipedia": {"total": 0, "ts": deque(maxlen=200), "recent": deque(maxlen=15), "running": False},
     }
 }
@@ -165,75 +169,63 @@ async def collect_solana(session: aiohttp.ClientSession, producer: AIOKafkaProdu
         await asyncio.sleep(0.4)
 
 
-# ── [VELOCITY MEDIUM] Mastodon REST polling ────────────────────
-async def collect_mastodon(session: aiohttp.ClientSession, producer: AIOKafkaProducer):
+# ── [VELOCITY VERY HIGH] Bluesky Jetstream WebSocket ──────────
+async def collect_bluesky(session: aiohttp.ClientSession, producer: AIOKafkaProducer):
     """
-    [VELOCITY] Mastodon public timeline: ~1-3 posts/sec.
-    Uses REST polling with since_id — no API key required.
-    Switched from SSE to REST to avoid mastodon.social rate-limits on streaming.
-    Kafka topic: velocity.mastodon
+    [VELOCITY] Bluesky public post firehose: ~20-30 posts/sec.
+    Uses Jetstream WebSocket — no API key required, purpose-built for public consumption.
+    Protocol: WebSocket (a third streaming pattern alongside SSE and RPC polling).
+    Kafka topic: velocity.bluesky
     """
-    src = state["sources"]["mastodon"]
-    seen_ids: set = set()
-    last_id: str | None = None
+    src = state["sources"]["bluesky"]
 
     while src["running"]:
         try:
-            params = {"limit": "20"}
-            if last_id:
-                params["since_id"] = last_id
-
-            async with session.get(
-                MASTODON_REST,
-                params=params,
-                headers={"User-Agent": UA},
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    await asyncio.sleep(3)
-                    continue
-
-                posts = await resp.json()
-                if not isinstance(posts, list):
-                    await asyncio.sleep(3)
-                    continue
-
-                # Oldest first so offsets are monotonically increasing
-                for post in reversed(posts):
+            async with session.ws_connect(
+                BLUESKY_JETSTREAM,
+                heartbeat=30,
+            ) as ws:
+                async for msg in ws:
                     if not src["running"]:
                         break
-                    pid = str(post.get("id", ""))
-                    if not pid or pid in seen_ids:
+                    if msg.type != aiohttp.WSMsgType.TEXT:
                         continue
-                    seen_ids.add(pid)
+                    try:
+                        data = json.loads(msg.data)
+                        # Only process new post commits
+                        commit = data.get("commit", {})
+                        if (data.get("kind") != "commit"
+                                or commit.get("operation") != "create"
+                                or commit.get("collection") != "app.bsky.feed.post"):
+                            continue
 
-                    # Track the newest id for next poll
-                    if last_id is None or int(pid) > int(last_id):
-                        last_id = pid
+                        record_data = commit.get("record", {})
+                        text = (record_data.get("text") or record_data.get("bridgyOriginalText") or "")[:120]
+                        # Strip HTML tags from bridged posts
+                        text = re.sub(r"<[^>]+>", "", text)[:120]
+                        langs = record_data.get("langs") or []
+                        lang = langs[0] if langs else ""
 
-                    content = re.sub(r"<[^>]+>", "", post.get("content", ""))[:120]
-                    account = post.get("account", {}).get("username", "anon")
-                    lang    = post.get("language") or ""
-                    event = {
-                        "source":          "mastodon",
-                        "event_type":      "post",
-                        "post_id":         pid,
-                        "account":         account,
-                        "language":        lang,
-                        "content_preview": content,
-                        "timestamp":       datetime.now(timezone.utc).isoformat(),
-                        "summary":         f"@{account}: {content[:80]}",
-                    }
-                    await producer.send(TOPICS["mastodon"], value=event, key="mastodon")
-                    record("mastodon", f"@{account}: {content[:80]}")
+                        # DID is like did:plc:abc123xyz — use short suffix as handle
+                        did = data.get("did", "")
+                        handle = did.split(":")[-1][:12] if did else "unknown"
 
-                # Prevent seen_ids from growing unbounded
-                if len(seen_ids) > 2000:
-                    seen_ids = set(list(seen_ids)[-500:])
-
+                        event = {
+                            "source":      "bluesky",
+                            "event_type":  "post",
+                            "did":         did,
+                            "handle":      handle,
+                            "language":    lang,
+                            "text":        text,
+                            "timestamp":   datetime.now(timezone.utc).isoformat(),
+                            "summary":     f"[{handle}] {text[:90]}",
+                        }
+                        await producer.send(TOPICS["bluesky"], value=event, key="bluesky")
+                        record("bluesky", f"[{handle}] {text[:90]}")
+                    except Exception:
+                        pass
         except Exception:
-            pass
-        await asyncio.sleep(2)
+            await asyncio.sleep(3)
 
 
 # ── [VELOCITY LOW] Wikipedia SSE ───────────────────────────────
@@ -302,9 +294,9 @@ async def run_collectors():
         if SOLANA_ENABLED:
             state["sources"]["solana"]["running"] = True
             tasks.append(collect_solana(session, producer))
-        if MASTODON_ENABLED:
-            state["sources"]["mastodon"]["running"] = True
-            tasks.append(collect_mastodon(session, producer))
+        if BLUESKY_ENABLED:
+            state["sources"]["bluesky"]["running"] = True
+            tasks.append(collect_bluesky(session, producer))
         if WIKIPEDIA_ENABLED:
             state["sources"]["wikipedia"]["running"] = True
             tasks.append(collect_wikipedia(session, producer))
@@ -323,7 +315,8 @@ async def start():
 @app.post("/stop")
 async def stop():
     state["is_running"] = False
-    for s in state["sources"].values(): s["running"] = False
+    for s in state["sources"].values():
+        s["running"] = False
     return {"status": "stopped"}
 
 
@@ -342,7 +335,7 @@ async def status():
                 "topic": TOPICS[name],
                 "enabled": (
                     (name == "solana"    and SOLANA_ENABLED)    or
-                    (name == "mastodon"  and MASTODON_ENABLED)  or
+                    (name == "bluesky"   and BLUESKY_ENABLED)   or
                     (name == "wikipedia" and WIKIPEDIA_ENABLED)
                 )
             }
@@ -363,7 +356,7 @@ async def clickhouse_stats():
         "GROUP BY source "
         "FORMAT JSON"
     )
-    empty = {"solana": 0, "mastodon": 0, "wikipedia": 0}
+    empty = {"solana": 0, "bluesky": 0, "wikipedia": 0}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -378,7 +371,7 @@ async def clickhouse_stats():
                 rows = {r["source"]: int(r["cnt"]) for r in data.get("data", [])}
                 by_source = {
                     "solana":    rows.get("solana",    0),
-                    "mastodon":  rows.get("mastodon",  0),
+                    "bluesky":   rows.get("bluesky",   0),
                     "wikipedia": rows.get("wikipedia", 0),
                 }
                 return {"by_source": by_source, "total": sum(by_source.values())}

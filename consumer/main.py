@@ -18,7 +18,7 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP",   "localhost:9092")
 CH_HOST         = os.getenv("CLICKHOUSE_HOST",   "localhost")
 CH_PASS         = os.getenv("CLICKHOUSE_PASSWORD","velocity_pass")
 
-TOPICS = ["velocity.solana", "velocity.mastodon", "velocity.wikipedia"]
+TOPICS = ["velocity.solana", "velocity.bluesky", "velocity.wikipedia"]
 
 
 def get_ch():
