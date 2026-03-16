@@ -1,0 +1,11 @@
+# Docker volumes / generated data
+clickhouse_data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Node (playwright screenshots, not part of project)
+node_modules/

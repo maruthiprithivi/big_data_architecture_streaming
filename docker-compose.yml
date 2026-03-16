@@ -1,0 +1,119 @@
+version: "3.9"
+
+# ── Velocity Showdown · Docker Compose ─────────────────────────
+# 5 services: Kafka (KRaft) · Kafka UI · Producer · Consumer · ClickHouse
+# One command: docker compose up --build -d
+
+services:
+
+  # ── 1. Kafka Broker (KRaft mode — no ZooKeeper needed) ──────
+  kafka:
+    image: apache/kafka:4.1.0
+    hostname: kafka
+    container_name: velocity-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 2
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── 2. Kafka UI — browse topics, messages, partitions ────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: velocity-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: velocity-showdown
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_READONLY: "false"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── 3. ClickHouse — columnar storage ──────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.2
+    container_name: velocity-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-velocity_pass}
+    volumes:
+      - ./clickhouse-init:/docker-entrypoint-initdb.d:ro
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── 4. Collector — reads live streams, produces to Kafka ─────
+  collector:
+    build: ./collector
+    container_name: velocity-collector
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      SOLANA_ENABLED: ${SOLANA_ENABLED:-true}
+      MASTODON_ENABLED: ${MASTODON_ENABLED:-true}
+      WIKIPEDIA_ENABLED: ${WIKIPEDIA_ENABLED:-true}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-velocity_pass}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── 5. Consumer — reads from Kafka, writes to ClickHouse ─────
+  consumer:
+    build: ./consumer
+    container_name: velocity-consumer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-velocity_pass}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── 6. Dashboard — velocity meters + links to Kafka UI ───────
+  dashboard:
+    build: ./dashboard
+    container_name: velocity-dashboard
+    ports:
+      - "3001:80"
+    depends_on:
+      - collector
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:

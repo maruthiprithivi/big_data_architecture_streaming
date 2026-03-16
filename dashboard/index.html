@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Velocity Showdown · IS459</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#111B26;--panel:#18242F;--card:#1E2E3D;--bdr:#2A3F55;--teal:#4ABFB8;--amber:#E8A87C;--sage:#7FB5A0;--mu:#6A8BA8;--txt:#E8E2D9;--mono:'JetBrains Mono',monospace}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;background:var(--panel);border-bottom:1px solid var(--bdr)}
+.h-left h1{font-family:'DM Serif Display',serif;font-size:1.3em}
+.h-left .sub{font-family:var(--mono);font-size:0.58em;color:var(--teal);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.h-right{display:flex;gap:10px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--bdr);transition:background .4s}
+.dot.live{background:#4ADA90;box-shadow:0 0 7px #4ADA90;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.status-lbl{font-size:0.7em;color:var(--mu);font-family:var(--mono)}
+button{padding:8px 18px;border-radius:6px;border:none;font-family:'DM Sans',sans-serif;font-size:0.8em;font-weight:600;cursor:pointer;transition:all .2s}
+#btn-start{background:var(--teal);color:#111B26}
+#btn-start:hover{background:#5CCFCA}
+#btn-start:disabled{background:var(--bdr);color:var(--mu);cursor:not-allowed}
+#btn-stop{background:transparent;color:var(--amber);border:1px solid var(--amber)}
+#btn-stop:hover{background:rgba(232,168,124,.1)}
+#btn-stop:disabled{opacity:.35;cursor:not-allowed}
+.kafka-btn{background:rgba(232,168,124,.12);color:var(--amber);border:1px solid rgba(232,168,124,.35);text-decoration:none;padding:8px 14px;border-radius:6px;font-size:0.78em;font-weight:600;display:flex;align-items:center;gap:6px}
+.kafka-btn:hover{background:rgba(232,168,124,.22)}
+main{padding:20px 28px}
+.meters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px}
+.meter{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden}
+.meter::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.m-sol::before{background:var(--teal)}.m-mast::before{background:var(--amber)}.m-wiki::before{background:var(--sage)}
+.m-label{font-family:var(--mono);font-size:0.53em;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+.m-sol .m-label{color:var(--teal)}.m-mast .m-label{color:var(--amber)}.m-wiki .m-label{color:var(--sage)}
+.m-eps{font-family:'DM Serif Display',serif;font-size:2.4em;line-height:1;margin-bottom:2px}
+.m-sol .m-eps{color:var(--teal)}.m-mast .m-eps{color:var(--amber)}.m-wiki .m-eps{color:var(--sage)}
+.m-unit{font-size:0.38em;font-family:'DM Sans',sans-serif;font-weight:400;color:var(--mu)}
+.m-total{font-size:0.65em;color:var(--mu);margin-bottom:12px}
+.m-total strong{color:var(--txt)}
+.bar-track{background:var(--bdr);border-radius:3px;height:4px;overflow:hidden;margin-bottom:10px}
+.bar-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.25,.8,.25,1);min-width:2px}
+.m-sol .bar-fill{background:var(--teal)}.m-mast .bar-fill{background:var(--amber)}.m-wiki .bar-fill{background:var(--sage)}
+.m-latest{font-size:0.58em;color:var(--mu);font-family:var(--mono);line-height:1.4;min-height:30px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.panel{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px}
+.panel-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:12px}
+.cmp-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cmp-name{font-size:0.64em;font-family:var(--mono);width:76px;flex-shrink:0}
+.cmp-track{flex:1;background:var(--bdr);border-radius:3px;height:7px;overflow:hidden}
+.cmp-fill{height:100%;border-radius:3px;transition:width 1s ease;min-width:2px}
+.r-sol .cmp-fill{background:var(--teal)}.r-sol .cmp-name{color:var(--teal)}
+.r-mast .cmp-fill{background:var(--amber)}.r-mast .cmp-name{color:var(--amber)}
+.r-wiki .cmp-fill{background:var(--sage)}.r-wiki .cmp-name{color:var(--sage)}
+.cmp-val{font-size:0.62em;font-family:var(--mono);width:58px;text-align:right;flex-shrink:0;color:var(--mu)}
+.r-sol .cmp-val{color:var(--teal)}.r-mast .cmp-val{color:var(--amber)}.r-wiki .cmp-val{color:var(--sage)}
+.ratio-box{text-align:center;padding:10px;background:rgba(74,191,184,.05);border:1px solid rgba(74,191,184,.18);border-radius:7px;margin-top:12px}
+.ratio-n{font-family:'DM Serif Display',serif;font-size:1.8em;color:var(--teal);line-height:1}
+.ratio-l{font-size:0.6em;color:var(--mu);margin-top:2px}
+
+.kafka-card{background:rgba(232,168,124,.05);border:1px solid rgba(232,168,124,.22);border-radius:10px;padding:16px 18px}
+.kafka-card h3{font-size:.78em;font-weight:600;color:var(--amber);margin-bottom:10px}
+.kafka-links{display:flex;flex-direction:column;gap:7px}
+.klink{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(232,168,124,.08);border-radius:6px;text-decoration:none;border:1px solid rgba(232,168,124,.2);transition:background .2s}
+.klink:hover{background:rgba(232,168,124,.16)}
+.klink-left{display:flex;flex-direction:column;gap:2px}
+.klink-name{font-size:0.7em;font-weight:600;color:var(--txt)}
+.klink-desc{font-size:0.6em;color:var(--mu);font-family:var(--mono)}
+.klink-arrow{color:var(--amber);font-size:0.8em}
+
+/* ── Live Event Feed ────────────────────────────────────────── */
+.feed-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+.feed-col{padding:14px 14px 10px}
+.feed-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr)}
+.fc-sol .feed-title{color:var(--teal)}.fc-mast .feed-title{color:var(--amber)}.fc-wiki .feed-title{color:var(--sage)}
+.feed-scroll{height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bdr) transparent}
+.feed-scroll::-webkit-scrollbar{width:3px}
+.feed-scroll::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.feed-item{font-size:0.57em;font-family:var(--mono);color:var(--mu);padding:4px 0;border-bottom:1px solid rgba(42,63,85,.4);line-height:1.5;word-break:break-word;transition:color .3s}
+.feed-item.fresh{color:var(--txt)}
+.feed-item .feed-ts{color:var(--bdr);font-size:0.85em;margin-right:4px}
+.feed-empty{font-size:0.58em;color:var(--bdr);font-family:var(--mono);padding:7px 0}
+
+/* ── ClickHouse Storage section ─────────────────────────────── */
+.ch-section{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;margin-bottom:18px}
+.ch-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ch-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.ch-total-wrap{display:flex;align-items:baseline;gap:6px}
+.ch-total-n{font-family:'DM Serif Display',serif;font-size:1.6em;color:var(--txt);line-height:1;transition:color .3s}
+.ch-total-n.bump{color:#4ADA90}
+.ch-total-l{font-size:0.62em;color:var(--mu);font-family:var(--mono)}
+.ch-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ch-src{background:var(--panel);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px}
+.ch-src-label{font-family:var(--mono);font-size:0.5em;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.ch-sol .ch-src-label{color:var(--teal)}.ch-mast .ch-src-label{color:var(--amber)}.ch-wiki .ch-src-label{color:var(--sage)}
+.ch-src-count{font-family:'DM Serif Display',serif;font-size:1.4em;line-height:1;margin-bottom:4px}
+.ch-sol .ch-src-count{color:var(--teal)}.ch-mast .ch-src-count{color:var(--amber)}.ch-wiki .ch-src-count{color:var(--sage)}
+.ch-src-bar{background:var(--bdr);border-radius:3px;height:3px;overflow:hidden;margin-top:6px}
+.ch-src-fill{height:100%;border-radius:3px;transition:width 1s ease;min-width:2px}
+.ch-sol .ch-src-fill{background:var(--teal)}.ch-mast .ch-src-fill{background:var(--amber)}.ch-wiki .ch-src-fill{background:var(--sage)}
+.ch-arrow{font-family:var(--mono);font-size:0.56em;color:var(--mu);display:flex;align-items:center;gap:8px;padding:8px 0 0}
+.ch-arrow span{color:var(--sage)}
+
+footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-family:var(--mono);letter-spacing:.06em}
+/* ── Kafka Anatomy section ──────────────────────────────────── */
+.anatomy{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;margin-bottom:18px}
+.anatomy-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.anatomy-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.anatomy-grid{display:grid;grid-template-columns:160px 1fr 1fr 1fr;gap:10px}
+.a-card{background:var(--panel);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px}
+.a-label{font-family:var(--mono);font-size:0.5em;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.a-broker .a-label{color:var(--mu)}
+.a-sol .a-label{color:var(--teal)}.a-mast .a-label{color:var(--amber)}.a-wiki .a-label{color:var(--sage)}
+.a-node{font-family:'DM Serif Display',serif;font-size:1.3em;line-height:1.1;margin-bottom:2px}
+.a-mode,.a-port{font-size:0.58em;color:var(--mu);font-family:var(--mono)}
+.a-status{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:0.58em;font-family:var(--mono)}
+.a-sdot{width:6px;height:6px;border-radius:50%;background:var(--bdr);flex-shrink:0;transition:background .4s}
+.a-sdot.ready{background:#4ADA90;box-shadow:0 0 5px #4ADA90}
+.a-sdot.connecting{background:var(--amber);animation:pulse 1.5s infinite}
+.a-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.a-key{font-size:0.56em;color:var(--mu);font-family:var(--mono)}
+.a-val{font-size:0.62em;font-family:var(--mono);color:var(--txt)}
+.a-lag{font-size:0.62em;font-family:var(--mono);font-weight:600;padding:1px 6px;border-radius:4px}
+.lag-ok{background:rgba(74,218,144,.12);color:#4ADA90}
+.lag-warn{background:rgba(232,168,124,.12);color:var(--amber)}
+.lag-hot{background:rgba(218,74,74,.12);color:#DA4A4A}
+.a-group{font-size:0.55em;color:var(--mu);font-family:var(--mono);margin-top:10px}
+.a-group code{color:var(--teal);background:rgba(74,191,184,.08);padding:1px 5px;border-radius:3px}
+/* ── Tooltips (pure CSS) ────────────────────────────────────── */
+.tip{position:relative;cursor:help;color:var(--mu);font-size:0.8em;vertical-align:middle;display:inline-block}
+.tip::after{content:attr(data-tip);position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0D1820;color:var(--txt);padding:6px 10px;border-radius:6px;font-size:11px;white-space:normal;max-width:220px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;border:1px solid var(--bdr);font-family:'DM Sans',sans-serif;line-height:1.4;width:max-content}
+.tip:hover::after{opacity:1}
+/* ── Start button wrapper tooltip (disabled state) ───────────── */
+.btn-wrap{position:relative;display:inline-block}
+.btn-wrap[data-tip]::after{content:attr(data-tip);position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0D1820;color:var(--txt);padding:6px 10px;border-radius:6px;font-size:11px;white-space:normal;max-width:220px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;border:1px solid var(--bdr);font-family:'DM Sans',sans-serif;line-height:1.4;width:max-content}
+.btn-wrap:hover::after{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <div class="h-left">
+    <h1>Velocity Showdown</h1>
+    <div class="sub">IS459 · Big Data Architecture · Week 7 · The "V" for Velocity</div>
+  </div>
+  <div class="h-right">
+    <div class="dot" id="dot"></div>
+    <span class="status-lbl" id="status-lbl">Stopped</span>
+    <a href="http://localhost:8080" target="_blank" class="kafka-btn">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="#E8A87C" stroke-width="1.3"/><line x1="4" y1="7" x2="10" y2="7" stroke="#E8A87C" stroke-width="1.3"/><line x1="7" y1="4" x2="7" y2="10" stroke="#E8A87C" stroke-width="1.3"/></svg>
+      Kafka UI
+    </a>
+    <span class="btn-wrap" id="start-wrap" data-tip="Kafka broker is still starting up — usually ready in 20–30 seconds">
+      <button id="btn-start" onclick="startCollection()" disabled>▶ Start Collection</button>
+    </span>
+    <button id="btn-stop" onclick="stopCollection()" disabled>■ Stop</button>
+  </div>
+</header>
+
+<main>
+  <div class="meters">
+    <div class="meter m-sol">
+      <div class="m-label">Solana · Blockchain · HIGH velocity</div>
+      <div class="m-eps"><span id="sol-eps">0.0</span><span class="m-unit"> events/sec</span></div>
+      <div class="m-total">Total: <strong id="sol-total">0</strong> &nbsp;·&nbsp; topic: <code style="color:var(--teal);font-size:.9em">velocity.solana</code></div>
+      <div class="bar-track"><div class="bar-fill" id="sol-bar" style="width:0%"></div></div>
+      <div class="m-latest" id="sol-latest">Waiting…</div>
+    </div>
+    <div class="meter m-mast">
+      <div class="m-label">Mastodon · Social · MEDIUM velocity</div>
+      <div class="m-eps"><span id="mast-eps">0.0</span><span class="m-unit"> events/sec</span></div>
+      <div class="m-total">Total: <strong id="mast-total">0</strong> &nbsp;·&nbsp; topic: <code style="color:var(--amber);font-size:.9em">velocity.mastodon</code></div>
+      <div class="bar-track"><div class="bar-fill" id="mast-bar" style="width:0%"></div></div>
+      <div class="m-latest" id="mast-latest">Waiting…</div>
+    </div>
+    <div class="meter m-wiki">
+      <div class="m-label">Wikipedia · Edits · LOW velocity</div>
+      <div class="m-eps"><span id="wiki-eps">0.0</span><span class="m-unit"> events/sec</span></div>
+      <div class="m-total">Total: <strong id="wiki-total">0</strong> &nbsp;·&nbsp; topic: <code style="color:var(--sage);font-size:.9em">velocity.wikipedia</code></div>
+      <div class="bar-track"><div class="bar-fill" id="wiki-bar" style="width:0%"></div></div>
+      <div class="m-latest" id="wiki-latest">Waiting…</div>
+    </div>
+  </div>
+
+  <!-- ── Kafka Anatomy ──────────────────────────────────────── -->
+  <div class="anatomy">
+    <div class="anatomy-hdr">
+      <div class="anatomy-title">Kafka Anatomy</div>
+      <div style="font-size:0.55em;color:var(--mu);font-family:var(--mono)">consumer group: <code style="color:var(--teal)">clickhouse-sink</code> <span class="tip" data-tip="A named group of consumers. Kafka tracks each group's read position independently, so multiple apps can read the same topic at different speeds.">ⓘ</span></div>
+    </div>
+    <div class="anatomy-grid">
+      <!-- Broker card -->
+      <div class="a-card a-broker">
+        <div class="a-label">Broker <span class="tip" data-tip="The Kafka server. It receives messages from producers, stores them durably, and serves them to consumers.">ⓘ</span></div>
+        <div class="a-node">Node <span id="broker-id">1</span></div>
+        <div class="a-mode">KRaft mode <span class="tip" data-tip="Since Kafka 3.3, the broker manages its own consensus — no separate ZooKeeper process needed.">ⓘ</span></div>
+        <div class="a-port" id="broker-port">:9092</div>
+        <div class="a-status">
+          <span class="a-sdot connecting" id="broker-dot"></span>
+          <span id="broker-status-lbl">connecting…</span>
+        </div>
+      </div>
+      <!-- velocity.solana topic card -->
+      <div class="a-card a-sol">
+        <div class="a-label">velocity.solana <span class="tip" data-tip="A Kafka topic is a named, ordered log of messages. Producers write to it; consumers read from it.">ⓘ</span></div>
+        <div class="a-row">
+          <span class="a-key">Partition <span class="tip" data-tip="Topics are split into partitions for parallel processing. Each partition is an independent ordered log. This demo uses 1 partition per topic.">ⓘ</span></span>
+          <span class="a-val" id="sol-partition">0</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Produced <span class="tip" data-tip="Every message written to this partition gets a sequential number called an offset. This is the latest offset — how many messages have been produced so far.">ⓘ</span></span>
+          <span class="a-val" id="sol-produced">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Consumed <span class="tip" data-tip="The offset the clickhouse-sink consumer group has committed — i.e. how many messages it has successfully processed and saved to ClickHouse.">ⓘ</span></span>
+          <span class="a-val" id="sol-consumed">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Lag <span class="tip" data-tip="Lag = Produced − Consumed. A low lag means the consumer is keeping up. A growing lag means it is falling behind.">ⓘ</span></span>
+          <span class="a-lag lag-ok" id="sol-lag">—</span>
+        </div>
+      </div>
+      <!-- velocity.mastodon topic card -->
+      <div class="a-card a-mast">
+        <div class="a-label">velocity.mastodon <span class="tip" data-tip="A Kafka topic is a named, ordered log of messages. Producers write to it; consumers read from it.">ⓘ</span></div>
+        <div class="a-row">
+          <span class="a-key">Partition <span class="tip" data-tip="Topics are split into partitions for parallel processing. Each partition is an independent ordered log. This demo uses 1 partition per topic.">ⓘ</span></span>
+          <span class="a-val" id="mast-partition">0</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Produced <span class="tip" data-tip="Every message written to this partition gets a sequential number called an offset. This is the latest offset — how many messages have been produced so far.">ⓘ</span></span>
+          <span class="a-val" id="mast-produced">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Consumed <span class="tip" data-tip="The offset the clickhouse-sink consumer group has committed — i.e. how many messages it has successfully processed and saved to ClickHouse.">ⓘ</span></span>
+          <span class="a-val" id="mast-consumed">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Lag <span class="tip" data-tip="Lag = Produced − Consumed. A low lag means the consumer is keeping up. A growing lag means it is falling behind.">ⓘ</span></span>
+          <span class="a-lag lag-ok" id="mast-lag">—</span>
+        </div>
+      </div>
+      <!-- velocity.wikipedia topic card -->
+      <div class="a-card a-wiki">
+        <div class="a-label">velocity.wikipedia <span class="tip" data-tip="A Kafka topic is a named, ordered log of messages. Producers write to it; consumers read from it.">ⓘ</span></div>
+        <div class="a-row">
+          <span class="a-key">Partition <span class="tip" data-tip="Topics are split into partitions for parallel processing. Each partition is an independent ordered log. This demo uses 1 partition per topic.">ⓘ</span></span>
+          <span class="a-val" id="wiki-partition">0</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Produced <span class="tip" data-tip="Every message written to this partition gets a sequential number called an offset. This is the latest offset — how many messages have been produced so far.">ⓘ</span></span>
+          <span class="a-val" id="wiki-produced">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Consumed <span class="tip" data-tip="The offset the clickhouse-sink consumer group has committed — i.e. how many messages it has successfully processed and saved to ClickHouse.">ⓘ</span></span>
+          <span class="a-val" id="wiki-consumed">—</span>
+        </div>
+        <div class="a-row">
+          <span class="a-key">Lag <span class="tip" data-tip="Lag = Produced − Consumed. A low lag means the consumer is keeping up. A growing lag means it is falling behind.">ⓘ</span></span>
+          <span class="a-lag lag-ok" id="wiki-lag">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ── end Kafka Anatomy ──────────────────────────────────── -->
+
+  <!-- ── ClickHouse Storage ─────────────────────────────────── -->
+  <div class="ch-section">
+    <div class="ch-hdr">
+      <div class="ch-title">ClickHouse Storage <span class="tip" data-tip="Rows persisted in ClickHouse by the clickhouse-sink consumer. Counts are queried live from the database every 2 seconds.">ⓘ</span></div>
+      <div class="ch-total-wrap">
+        <span class="ch-total-n" id="ch-total">0</span>
+        <span class="ch-total-l">rows inserted</span>
+      </div>
+    </div>
+    <div class="ch-grid">
+      <div class="ch-src ch-sol">
+        <div class="ch-src-label">velocity.solana</div>
+        <div class="ch-src-count" id="ch-sol">0</div>
+        <div style="font-size:0.55em;color:var(--mu);font-family:var(--mono)">rows in DB</div>
+        <div class="ch-src-bar"><div class="ch-src-fill" id="ch-sol-bar" style="width:0%"></div></div>
+      </div>
+      <div class="ch-src ch-mast">
+        <div class="ch-src-label">velocity.mastodon</div>
+        <div class="ch-src-count" id="ch-mast">0</div>
+        <div style="font-size:0.55em;color:var(--mu);font-family:var(--mono)">rows in DB</div>
+        <div class="ch-src-bar"><div class="ch-src-fill" id="ch-mast-bar" style="width:0%"></div></div>
+      </div>
+      <div class="ch-src ch-wiki">
+        <div class="ch-src-label">velocity.wikipedia</div>
+        <div class="ch-src-count" id="ch-wiki">0</div>
+        <div style="font-size:0.55em;color:var(--mu);font-family:var(--mono)">rows in DB</div>
+        <div class="ch-src-bar"><div class="ch-src-fill" id="ch-wiki-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="ch-arrow">
+      <span>Kafka topics</span>
+      <span>→</span>
+      <span style="color:var(--teal)">clickhouse-sink consumer</span>
+      <span>→</span>
+      <span>velocity_lab.events</span>
+      <span>·</span>
+      <span style="color:#4ADA90" id="ch-rate">— rows/s</span>
+    </div>
+  </div>
+  <!-- ── end ClickHouse Storage ─────────────────────────────── -->
+
+  <div class="bottom">
+    <div class="panel">
+      <div class="panel-title">Relative Velocity (log scale)</div>
+      <div class="cmp-row r-sol"><span class="cmp-name">Solana</span><div class="cmp-track"><div class="cmp-fill" id="cb-sol" style="width:0%"></div></div><span class="cmp-val" id="cv-sol">0.0/s</span></div>
+      <div class="cmp-row r-mast"><span class="cmp-name">Mastodon</span><div class="cmp-track"><div class="cmp-fill" id="cb-mast" style="width:0%"></div></div><span class="cmp-val" id="cv-mast">0.0/s</span></div>
+      <div class="cmp-row r-wiki"><span class="cmp-name">Wikipedia</span><div class="cmp-track"><div class="cmp-fill" id="cb-wiki" style="width:0%"></div></div><span class="cmp-val" id="cv-wiki">0.0/s</span></div>
+      <div class="ratio-box"><div class="ratio-n" id="ratio">—</div><div class="ratio-l">Solana : Wikipedia velocity ratio</div></div>
+    </div>
+
+    <div class="kafka-card">
+      <h3>Open Kafka UI to see the anatomy →</h3>
+      <div class="kafka-links">
+        <a href="http://localhost:8080/ui/clusters/velocity-showdown/topics" target="_blank" class="klink">
+          <div class="klink-left"><span class="klink-name">Topics</span><span class="klink-desc">velocity.solana · velocity.mastodon · velocity.wikipedia</span></div>
+          <span class="klink-arrow">→</span>
+        </a>
+        <a href="http://localhost:8080/ui/clusters/velocity-showdown/brokers" target="_blank" class="klink">
+          <div class="klink-left"><span class="klink-name">Brokers</span><span class="klink-desc">1 broker · KRaft mode · port 9092</span></div>
+          <span class="klink-arrow">→</span>
+        </a>
+        <a href="http://localhost:8080/ui/clusters/velocity-showdown/consumer-groups/clickhouse-sink" target="_blank" class="klink">
+          <div class="klink-left"><span class="klink-name">Consumer Groups</span><span class="klink-desc">clickhouse-sink · see partition lag</span></div>
+          <span class="klink-arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live Event Feed ────────────────────────────────────── -->
+  <div class="panel" style="margin-bottom:18px">
+    <div class="panel-title" style="padding:0;margin-bottom:0">Live Event Feed — raw messages as they arrive from Kafka</div>
+    <div class="feed-grid">
+      <div class="feed-col fc-sol">
+        <div class="feed-title">velocity.solana</div>
+        <div class="feed-scroll" id="feed-sol"></div>
+      </div>
+      <div class="feed-col fc-mast">
+        <div class="feed-title">velocity.mastodon</div>
+        <div class="feed-scroll" id="feed-mast"></div>
+      </div>
+      <div class="feed-col fc-wiki">
+        <div class="feed-title">velocity.wikipedia</div>
+        <div class="feed-scroll" id="feed-wiki"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>IS459 · Velocity Showdown · Kafka Producer on :8000 · Kafka Broker on :9092 · Kafka UI on :8080 · ClickHouse on :8123</footer>
+
+<script>
+const API = 'http://localhost:8000';
+let polling = null, chPolling = null, maxEps = 1, kafkaReady = false, readyPoller = null;
+let prevChTotal = 0, prevChTs = 0;
+
+function enableStartButton() {
+  const btn  = document.getElementById('btn-start');
+  const wrap = document.getElementById('start-wrap');
+  btn.disabled = false;
+  wrap.dataset.tip = 'Click to start producing events to Kafka';
+}
+async function checkKafkaReady() {
+  try {
+    const r    = await fetch(`${API}/kafka-meta`);
+    const meta = await r.json();
+    updateAnatomy(meta);
+    if (!kafkaReady && meta.broker && meta.broker.status === 'ready') {
+      kafkaReady = true;
+      enableStartButton();
+      clearInterval(readyPoller);
+    }
+  } catch(e) {}
+}
+
+async function startCollection() {
+  document.getElementById('btn-start').disabled = true;
+  try {
+    await fetch(`${API}/start`, {method:'POST'});
+    document.getElementById('btn-stop').disabled = false;
+    document.getElementById('dot').classList.add('live');
+    document.getElementById('status-lbl').textContent = 'Live';
+    polling   = setInterval(fetchStatus, 1000);
+    chPolling = setInterval(fetchChStats, 2000);
+    fetchChStats();
+  } catch(e) {
+    document.getElementById('btn-start').disabled = false;
+    alert('Cannot reach collector at localhost:8000. Is docker compose running?');
+  }
+}
+async function stopCollection() {
+  await fetch(`${API}/stop`, {method:'POST'});
+  clearInterval(polling);
+  clearInterval(chPolling);
+  document.getElementById('dot').classList.remove('live');
+  document.getElementById('status-lbl').textContent = 'Stopped';
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+}
+async function fetchStatus() {
+  try {
+    const [sr, mr] = await Promise.all([
+      fetch(`${API}/status`),
+      fetch(`${API}/kafka-meta`),
+    ]);
+    update(await sr.json());
+    updateAnatomy(await mr.json());
+  } catch(e) {}
+}
+async function fetchChStats() {
+  try {
+    const r = await fetch(`${API}/clickhouse-stats`);
+    const d = await r.json();
+    updateCh(d);
+  } catch(e) {}
+}
+
+function logBar(v) { return v <= 0 ? 0 : Math.min(100, Math.log10(v+1)/Math.log10(maxEps+1)*100); }
+function fmt(n)    { return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String(n); }
+function esc(s)    { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function $t(id,v)  { const e=document.getElementById(id); if(e) e.textContent=v; }
+function $w(id,p)  { const e=document.getElementById(id); if(e) e.style.width=p+'%'; }
+
+function update(data) {
+  const s = data.sources;
+  const se = s.solana.eps||0, me = s.mastodon.eps||0, we = s.wikipedia.eps||0;
+  maxEps = Math.max(maxEps, se, me, we, .01);
+  $t('sol-eps',  se.toFixed(1)); $t('mast-eps', me.toFixed(1)); $t('wiki-eps', we.toFixed(1));
+  $t('sol-total', fmt(s.solana.total)); $t('mast-total', fmt(s.mastodon.total)); $t('wiki-total', fmt(s.wikipedia.total));
+  $w('sol-bar', logBar(se)); $w('mast-bar', logBar(me)); $w('wiki-bar', logBar(we));
+  if((s.solana.recent||[])[0])    $t('sol-latest',  s.solana.recent[0]);
+  if((s.mastodon.recent||[])[0])  $t('mast-latest', s.mastodon.recent[0]);
+  if((s.wikipedia.recent||[])[0]) $t('wiki-latest', s.wikipedia.recent[0]);
+  $w('cb-sol', logBar(se)); $w('cb-mast', logBar(me)); $w('cb-wiki', logBar(we));
+  $t('cv-sol', se.toFixed(1)+'/s'); $t('cv-mast', me.toFixed(1)+'/s'); $t('cv-wiki', we.toFixed(1)+'/s');
+  const ratioEl = document.getElementById('ratio');
+  if(ratioEl) ratioEl.textContent = we>0&&se>0 ? Math.round(se/we)+'×' : se>0 ? '∞' : '—';
+  feed('feed-sol',  s.solana.recent||[]);
+  feed('feed-mast', s.mastodon.recent||[]);
+  feed('feed-wiki', s.wikipedia.recent||[]);
+}
+
+function feed(id, items) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="feed-empty">No events yet…</div>';
+    return;
+  }
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  const ts = `${hh}:${mm}:${ss}`;
+  // Prepend new top item with timestamp, keep rest as-is
+  el.innerHTML = items.map((t, i) =>
+    `<div class="feed-item${i===0?' fresh':''}"><span class="feed-ts">${i===0?ts:''}</span>${esc(t)}</div>`
+  ).join('');
+}
+
+function fmtOffset(n) {
+  if (!n) return '—';
+  return n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+}
+function lagClass(n) {
+  if (n <= 5)  return 'lag-ok';
+  if (n <= 20) return 'lag-warn';
+  return 'lag-hot';
+}
+function updateAnatomy(meta) {
+  if (!meta) return;
+  const b = meta.broker || {};
+  $t('broker-id',   b.node_id ?? 1);
+  $t('broker-port', ':' + (b.port ?? 9092));
+  const dot = document.getElementById('broker-dot');
+  const lbl = document.getElementById('broker-status-lbl');
+  if (b.status === 'ready') {
+    dot.className = 'a-sdot ready';
+    lbl.textContent = 'connected';
+  } else {
+    dot.className = 'a-sdot connecting';
+    lbl.textContent = 'connecting…';
+  }
+  const map = {
+    'velocity.solana':    'sol',
+    'velocity.mastodon':  'mast',
+    'velocity.wikipedia': 'wiki',
+  };
+  const topics = meta.topics || {};
+  for (const [topic, pre] of Object.entries(map)) {
+    const t = topics[topic] || {};
+    $t(pre+'-partition', t.partition ?? 0);
+    $t(pre+'-produced',  fmtOffset(t.producer_offset));
+    $t(pre+'-consumed',  fmtOffset(t.consumer_offset));
+    const lagEl = document.getElementById(pre+'-lag');
+    if (lagEl) {
+      const lag = t.lag ?? 0;
+      lagEl.textContent = t.producer_offset > 0 ? String(lag) : '—';
+      lagEl.className   = 'a-lag ' + (t.producer_offset > 0 ? lagClass(lag) : 'lag-ok');
+    }
+  }
+}
+
+function updateCh(d) {
+  if (!d) return;
+  const by  = d.by_source || {};
+  const sol  = by.solana    || 0;
+  const mast = by.mastodon  || 0;
+  const wiki = by.wikipedia || 0;
+  const total = d.total || 0;
+
+  $t('ch-sol',  fmt(sol));
+  $t('ch-mast', fmt(mast));
+  $t('ch-wiki', fmt(wiki));
+
+  // Animate total and briefly flash green on increase
+  const totalEl = document.getElementById('ch-total');
+  if (totalEl) {
+    const prev = parseInt(totalEl.textContent.replace(/[KM]/,'')) || 0;
+    totalEl.textContent = fmt(total);
+    if (total > prevChTotal) {
+      totalEl.classList.add('bump');
+      setTimeout(() => totalEl.classList.remove('bump'), 600);
+    }
+  }
+  prevChTotal = total;
+
+  // Bar proportions
+  const maxCh = Math.max(sol, mast, wiki, 1);
+  $w('ch-sol-bar',  (sol/maxCh)*100);
+  $w('ch-mast-bar', (mast/maxCh)*100);
+  $w('ch-wiki-bar', (wiki/maxCh)*100);
+
+  // Insertion rate
+  const now = Date.now();
+  if (prevChTs > 0 && now > prevChTs) {
+    const rate = ((total - (parseInt(document.getElementById('ch-total').dataset.prev||0))) /
+                  ((now - prevChTs)/1000));
+    // Use a simpler running calculation
+  }
+  const rateEl = document.getElementById('ch-rate');
+  if (rateEl && prevChTs > 0) {
+    const dt = (now - prevChTs) / 1000;
+    const delta = total - (rateEl.dataset.lastTotal || 0);
+    if (dt > 0 && delta >= 0) {
+      const rps = (delta / dt).toFixed(1);
+      rateEl.textContent = rps + ' rows/s';
+    }
+  }
+  if (rateEl) {
+    rateEl.dataset.lastTotal = total;
+    prevChTs = now;
+  }
+}
+
+window.onload = function() {
+  fetchStatus();
+  fetchChStats();
+  readyPoller = setInterval(checkKafkaReady, 3000);
+  checkKafkaReady();
+};
+</script>
+</body>
+</html>
