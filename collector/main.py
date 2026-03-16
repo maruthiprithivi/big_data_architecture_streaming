@@ -42,6 +42,7 @@ WIKI_SSE           = "https://stream.wikimedia.org/v2/stream/recentchange"
 CH_HOST = os.getenv("CLICKHOUSE_HOST",    "clickhouse")
 CH_PASS = os.getenv("CLICKHOUSE_PASSWORD","velocity_pass")
 CH_HTTP = f"http://{CH_HOST}:8123/"
+STORAGE_LIMIT_BYTES = int(os.getenv("STORAGE_LIMIT_GB", "5")) * 1024 ** 3
 
 TOPICS = {
     "solana":    "velocity.solana",
@@ -54,6 +55,7 @@ UA = "VelocityShowdown/1.0 (IS459 Big Data Architecture; Educational)"
 # ── State ───────────────────────────────────────────────────────
 state = {
     "is_running": False,
+    "paused_reason": None,
     "start_time": None,
     "sources": {
         "solana":    {"total": 0, "ts": deque(maxlen=200), "recent": deque(maxlen=15), "running": False},
@@ -84,10 +86,40 @@ async def get_meta_consumer() -> AIOKafkaConsumer:
             _meta_consumer = c
     return _meta_consumer
 
+# ── Storage watchdog ────────────────────────────────────────────
+async def get_storage_bytes() -> int:
+    query = "SELECT sum(bytes_on_disk) AS b FROM system.parts WHERE database='velocity_lab' FORMAT JSON"
+    async with aiohttp.ClientSession() as s:
+        async with s.get(CH_HTTP, params={"query": query},
+                         auth=aiohttp.BasicAuth("default", CH_PASS),
+                         timeout=aiohttp.ClientTimeout(total=3)) as r:
+            d = await r.json(content_type=None)
+            return int((d.get("data") or [{}])[0].get("b", 0))
+
+
+async def storage_watchdog():
+    while True:
+        await asyncio.sleep(30)
+        if not state["is_running"]:
+            continue
+        try:
+            used = await get_storage_bytes()
+            if used >= STORAGE_LIMIT_BYTES:
+                state["is_running"] = False
+                state["paused_reason"] = "storage_limit"
+                for s in state["sources"].values():
+                    s["running"] = False
+                print(f"[watchdog] 5 GB limit reached — auto-paused.")
+        except Exception:
+            pass
+
+
 # ── App ─────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _wdog = asyncio.create_task(storage_watchdog())
     yield
+    _wdog.cancel()
     global _producer, _meta_consumer
     async with _meta_consumer_lock:
         if _meta_consumer is not None:
@@ -320,10 +352,54 @@ async def stop():
     return {"status": "stopped"}
 
 
+@app.post("/start/{source}")
+async def start_source(source: str):
+    if source not in state["sources"]:
+        return {"error": f"unknown source: {source}"}
+    if not state["is_running"]:
+        return {"error": "collection is not running — use POST /start first"}
+    src = state["sources"][source]
+    if src["running"]:
+        return {"status": "already_running", "source": source}
+    src["running"] = True
+    producer = await get_producer()
+    timeout = aiohttp.ClientTimeout(total=None, connect=10)
+    session = aiohttp.ClientSession(timeout=timeout)
+    fn = {"solana": collect_solana, "bluesky": collect_bluesky, "wikipedia": collect_wikipedia}[source]
+    asyncio.create_task(fn(session, producer))
+    return {"status": "started", "source": source}
+
+
+@app.post("/stop/{source}")
+async def stop_source(source: str):
+    if source not in state["sources"]:
+        return {"error": f"unknown source: {source}"}
+    state["sources"][source]["running"] = False
+    return {"status": "stopped", "source": source}
+
+
+@app.get("/clickhouse-storage")
+async def clickhouse_storage():
+    """Returns ClickHouse disk usage for velocity_lab vs the configured limit."""
+    try:
+        used = await get_storage_bytes()
+    except Exception as e:
+        return {"error": str(e)}
+    limit = STORAGE_LIMIT_BYTES
+    return {
+        "bytes_on_disk": used,
+        "gb": round(used / 1024 ** 3, 3),
+        "limit_gb": round(limit / 1024 ** 3, 1),
+        "pct_used": round(used / limit * 100, 1) if limit > 0 else 0,
+        "over_limit": used >= limit,
+    }
+
+
 @app.get("/status")
 async def status():
     return {
         "is_running": state["is_running"],
+        "paused_reason": state.get("paused_reason"),
         "start_time": state["start_time"],
         "kafka_broker": KAFKA_BOOTSTRAP,
         "topics": TOPICS,

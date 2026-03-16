@@ -9,3 +9,10 @@ __pycache__/
 
 # Node (playwright screenshots, not part of project)
 node_modules/
+*.output
+
+# Internal planning & tooling
+docs/
+.claude/
+firebase-debug.log
+.DS_Store

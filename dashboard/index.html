@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Velocity Showdown · IS459</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#111B26;--panel:#18242F;--card:#1E2E3D;--bdr:#2A3F55;--teal:#4ABFB8;--amber:#E8A87C;--sage:#7FB5A0;--mu:#6A8BA8;--txt:#E8E2D9;--mono:'JetBrains Mono',monospace}
@@ -73,13 +74,45 @@ main{padding:20px 28px}
 .feed-col{padding:14px 14px 10px}
 .feed-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr)}
 .fc-sol .feed-title{color:var(--teal)}.fc-mast .feed-title{color:var(--amber)}.fc-wiki .feed-title{color:var(--sage)}
-.feed-scroll{height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bdr) transparent}
-.feed-scroll::-webkit-scrollbar{width:3px}
-.feed-scroll::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.feed-scroll{height:260px;overflow:hidden}
+@keyframes slideIn{from{opacity:0;transform:translateY(-18px);max-height:0}to{opacity:1;transform:translateY(0);max-height:60px}}
 .feed-item{font-size:0.57em;font-family:var(--mono);color:var(--mu);padding:4px 0;border-bottom:1px solid rgba(42,63,85,.4);line-height:1.5;word-break:break-word;transition:color .3s}
+.feed-item.slide-in{animation:slideIn 0.28s ease-out forwards}
 .feed-item.fresh{color:var(--txt)}
 .feed-item .feed-ts{color:var(--bdr);font-size:0.85em;margin-right:4px}
 .feed-empty{font-size:0.58em;color:var(--bdr);font-family:var(--mono);padding:7px 0}
+
+/* ── Storage warning badge ──────────────────────────────────── */
+#storage-warn{display:none;background:rgba(218,74,74,.15);color:#DA4A4A;border:1px solid rgba(218,74,74,.4);border-radius:6px;padding:5px 12px;font-size:0.7em;font-family:var(--mono);font-weight:600}
+
+/* ── Student Lab Panel ──────────────────────────────────────── */
+.lab-panel{background:var(--card);border:1px solid var(--bdr);border-radius:10px;margin-bottom:18px;overflow:hidden}
+.lab-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;border-bottom:1px solid var(--bdr)}
+.lab-hdr-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.1em;text-transform:uppercase;color:var(--teal)}
+.lab-hdr-toggle{font-family:var(--mono);font-size:0.65em;color:var(--mu);transition:transform .2s}
+.lab-body{padding:16px 18px;display:none}
+.lab-body.open{display:block}
+.lab-section-title{font-family:var(--mono);font-size:0.5em;letter-spacing:.1em;text-transform:uppercase;color:var(--mu);margin-bottom:10px;margin-top:14px}
+.lab-section-title:first-child{margin-top:0}
+.source-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.src-btn{padding:6px 14px;border-radius:5px;border:1px solid;font-family:var(--mono);font-size:0.68em;font-weight:600;cursor:pointer;transition:all .2s}
+.src-btn.sol-btn{color:var(--teal);border-color:var(--teal);background:rgba(74,191,184,.08)}
+.src-btn.sol-btn:hover{background:rgba(74,191,184,.18)}
+.src-btn.mast-btn{color:var(--amber);border-color:var(--amber);background:rgba(232,168,124,.08)}
+.src-btn.mast-btn:hover{background:rgba(232,168,124,.18)}
+.src-btn.wiki-btn{color:var(--sage);border-color:var(--sage);background:rgba(127,181,160,.08)}
+.src-btn.wiki-btn:hover{background:rgba(127,181,160,.18)}
+.src-btn.paused{opacity:.5}
+.query-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.q-btn{padding:6px 14px;border-radius:5px;border:1px solid rgba(74,191,184,.35);background:rgba(74,191,184,.07);color:var(--teal);font-family:var(--mono);font-size:0.65em;cursor:pointer;transition:all .2s}
+.q-btn:hover{background:rgba(74,191,184,.18)}
+.q-btn.loading{opacity:.5;cursor:wait}
+#query-result{overflow-x:auto;margin-top:4px}
+#query-result table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:0.58em}
+#query-result th{background:var(--panel);color:var(--teal);padding:5px 10px;text-align:left;border-bottom:1px solid var(--bdr);font-weight:500;letter-spacing:.05em}
+#query-result td{padding:4px 10px;color:var(--mu);border-bottom:1px solid rgba(42,63,85,.3);word-break:break-all}
+#query-result tr:hover td{background:rgba(74,191,184,.04);color:var(--txt)}
+.q-error{color:#DA4A4A;font-family:var(--mono);font-size:0.62em;padding:8px 0}
 
 /* ── ClickHouse Storage section ─────────────────────────────── */
 .ch-section{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;margin-bottom:18px}
@@ -134,6 +167,31 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
 .btn-wrap{position:relative;display:inline-block}
 .btn-wrap[data-tip]::after{content:attr(data-tip);position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:#0D1820;color:var(--txt);padding:6px 10px;border-radius:6px;font-size:11px;white-space:normal;max-width:220px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s;z-index:200;border:1px solid var(--bdr);font-family:'DM Sans',sans-serif;line-height:1.4;width:max-content}
 .btn-wrap:hover::after{opacity:1}
+
+/* ── Velocity over time chart ───────────────────────────────── */
+.chart-section{background:var(--card);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;margin-bottom:18px}
+.chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.chart-title{font-family:var(--mono);font-size:0.53em;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.chart-legend{display:flex;align-items:center;gap:16px}
+.cl-item{display:flex;align-items:center;gap:5px}
+.cl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cl-name{font-family:var(--mono);font-size:0.58em;color:var(--mu)}
+.chart-wrap{position:relative;height:160px}
+
+/* ── Scenario cards ─────────────────────────────────────────── */
+.scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.scenario-card{background:var(--panel);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;display:flex;gap:12px}
+.scenario-icon{font-size:1.5em;flex-shrink:0;width:32px;text-align:center;padding-top:1px}
+.scenario-content{min-width:0}
+.scenario-title{font-size:0.68em;font-weight:600;color:var(--txt);margin-bottom:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.3}
+.scenario-src{font-family:var(--mono);font-size:0.78em;padding:1px 6px;border-radius:3px;font-weight:500;white-space:nowrap}
+.sol-src{background:rgba(74,191,184,.12);color:var(--teal)}
+.mast-src{background:rgba(232,168,124,.12);color:var(--amber)}
+.wiki-src{background:rgba(127,181,160,.12);color:var(--sage)}
+.cross-src{background:rgba(106,139,168,.12);color:var(--mu)}
+.scenario-body{font-size:0.61em;color:var(--mu);font-family:var(--mono);line-height:1.55;margin-bottom:8px}
+.scenario-q-btn{padding:4px 10px;border-radius:4px;border:1px solid rgba(74,191,184,.3);background:rgba(74,191,184,.06);color:var(--teal);font-family:var(--mono);font-size:0.62em;cursor:pointer;transition:all .2s;white-space:nowrap}
+.scenario-q-btn:hover{background:rgba(74,191,184,.18)}
 </style>
 </head>
 <body>
@@ -143,6 +201,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
     <div class="sub">IS459 · Big Data Architecture · Week 7 · The "V" for Velocity</div>
   </div>
   <div class="h-right">
+    <div id="storage-warn">⚠ Storage limit reached — collection paused</div>
     <div class="dot" id="dot"></div>
     <span class="status-lbl" id="status-lbl">Stopped</span>
     <a href="http://localhost:8080" target="_blank" class="kafka-btn">
@@ -180,6 +239,20 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
       <div class="m-latest" id="wiki-latest">Waiting…</div>
     </div>
   </div>
+
+  <!-- ── Velocity over time chart ─────────────────────────── -->
+  <div class="chart-section">
+    <div class="chart-hdr">
+      <div class="chart-title">Velocity Over Time <span class="tip" data-tip="Events per second sampled every 1 second — last 60 seconds. Like a stock ticker, each source has its own series.">ⓘ</span></div>
+      <div class="chart-legend">
+        <div class="cl-item"><span class="cl-dot" style="background:var(--teal)"></span><span class="cl-name">Solana</span></div>
+        <div class="cl-item"><span class="cl-dot" style="background:var(--amber)"></span><span class="cl-name">Bluesky</span></div>
+        <div class="cl-item"><span class="cl-dot" style="background:var(--sage)"></span><span class="cl-name">Wikipedia</span></div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="velocity-chart"></canvas></div>
+  </div>
+  <!-- ── end chart ─────────────────────────────────────────── -->
 
   <!-- ── Kafka Anatomy ──────────────────────────────────────── -->
   <div class="anatomy">
@@ -310,7 +383,7 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
       <div class="cmp-row r-sol"><span class="cmp-name">Solana</span><div class="cmp-track"><div class="cmp-fill" id="cb-sol" style="width:0%"></div></div><span class="cmp-val" id="cv-sol">0.0/s</span></div>
       <div class="cmp-row r-mast"><span class="cmp-name">Bluesky</span><div class="cmp-track"><div class="cmp-fill" id="cb-mast" style="width:0%"></div></div><span class="cmp-val" id="cv-mast">0.0/s</span></div>
       <div class="cmp-row r-wiki"><span class="cmp-name">Wikipedia</span><div class="cmp-track"><div class="cmp-fill" id="cb-wiki" style="width:0%"></div></div><span class="cmp-val" id="cv-wiki">0.0/s</span></div>
-      <div class="ratio-box"><div class="ratio-n" id="ratio">—</div><div class="ratio-l">Solana : Wikipedia velocity ratio</div></div>
+      <div class="ratio-box"><div class="ratio-n" id="ratio">—</div><div class="ratio-l">Bluesky : Wikipedia velocity ratio</div></div>
     </div>
 
     <div class="kafka-card">
@@ -350,6 +423,95 @@ footer{text-align:center;padding:14px;font-size:0.58em;color:var(--bdr);font-fam
       </div>
     </div>
   </div>
+
+  <!-- ── Student Lab Panel ──────────────────────────────────── -->
+  <div class="lab-panel">
+    <div class="lab-hdr" onclick="toggleLab()">
+      <div class="lab-hdr-title">Student Lab — Experiments &amp; Query Lab</div>
+      <span class="lab-hdr-toggle" id="lab-toggle">▶ expand</span>
+    </div>
+    <div class="lab-body" id="lab-body">
+      <div class="lab-section-title">Per-Source Stream Controls</div>
+      <div style="font-size:0.6em;color:var(--mu);font-family:var(--mono);margin-bottom:10px">Try stopping Bluesky — watch the velocity bars change. Resume it and see lag recover in the Kafka Anatomy panel.</div>
+      <div class="source-controls">
+        <button class="src-btn sol-btn" id="btn-sol" onclick="toggleSource('solana')">● Solana — running</button>
+        <button class="src-btn mast-btn" id="btn-mast" onclick="toggleSource('bluesky')">● Bluesky — running</button>
+        <button class="src-btn wiki-btn" id="btn-wiki" onclick="toggleSource('wikipedia')">● Wikipedia — running</button>
+      </div>
+
+      <div class="lab-section-title" style="margin-top:18px">Query Lab — Live ClickHouse Queries</div>
+      <div style="font-size:0.6em;color:var(--mu);font-family:var(--mono);margin-bottom:10px">Click a query to run it live against the ClickHouse database. Results appear below.</div>
+      <div class="query-btns">
+        <button class="q-btn" onclick="runQuery('SELECT source, count() AS events FROM velocity_lab.events GROUP BY source ORDER BY events DESC')">Event counts by source</button>
+        <button class="q-btn" onclick="runQuery(&quot;SELECT source, round(count()/dateDiff('second',min(collected_at),max(collected_at)),2) AS avg_eps FROM velocity_lab.events GROUP BY source&quot;)">Avg events/sec</button>
+        <button class="q-btn" onclick="runQuery(&quot;SELECT JSONExtractString(metadata,'user') AS editor, count() AS edits FROM velocity_lab.events WHERE source='wikipedia' GROUP BY editor ORDER BY edits DESC LIMIT 10&quot;)">Top Wikipedia editors</button>
+        <button class="q-btn" onclick="runQuery(&quot;SELECT JSONExtractString(metadata,'language') AS lang, count() AS posts FROM velocity_lab.events WHERE source='bluesky' AND lang != '' GROUP BY lang ORDER BY posts DESC LIMIT 10&quot;)">Top Bluesky languages</button>
+        <button class="q-btn" onclick="runQuery('SELECT source, collected_at, summary FROM velocity_lab.events ORDER BY collected_at DESC LIMIT 20')">Last 20 events</button>
+      </div>
+      <div id="query-result"></div>
+
+      <div class="lab-section-title" style="margin-top:20px">Industry Scenarios — What Would You Build With This?</div>
+      <div style="font-size:0.6em;color:var(--mu);font-family:var(--mono);margin-bottom:12px">Each card connects the live stream to a real production use-case. Click the query to see the data behind it.</div>
+      <div class="scenario-grid">
+
+        <div class="scenario-card">
+          <div class="scenario-icon">⛓</div>
+          <div class="scenario-content">
+            <div class="scenario-title">DeFi Block Monitoring <span class="scenario-src sol-src">Solana</span></div>
+            <div class="scenario-body">A DeFi arbitrage bot watches slot progression to detect network congestion — each slot is a ~400 ms window. If slots stop arriving, the bot pauses trades. Run to see the most recent slots and timestamps, exactly as a trading system would consume them.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT JSONExtractInt(metadata,'slot') AS slot_number, formatDateTime(event_time,'%H:%M:%S') AS block_time, summary FROM velocity_lab.events WHERE source='solana' ORDER BY event_time DESC LIMIT 15&quot;)">Run: Latest Solana slots →</button>
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-icon">📡</div>
+          <div class="scenario-content">
+            <div class="scenario-title">Trending Topic Detection <span class="scenario-src mast-src">Bluesky</span></div>
+            <div class="scenario-body">At 20 posts/sec, platforms detect trending topics using 30-second sliding windows. Language distribution is a proxy for geographic spread — a sudden spike in one language can signal a breaking news event in that region.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT JSONExtractString(metadata,'language') AS lang, count() AS posts, bar(count(),0,2000,25) AS volume FROM velocity_lab.events WHERE source='bluesky' AND lang != '' GROUP BY lang ORDER BY posts DESC LIMIT 12&quot;)">Run: Language spread →</button>
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-icon">📝</div>
+          <div class="scenario-content">
+            <div class="scenario-title">Vandalism &amp; Edit-War Detection <span class="scenario-src wiki-src">Wikipedia</span></div>
+            <div class="scenario-body">Wikipedia's anti-vandalism bot (ClueBot NG) consumes this same SSE stream. Signals: an editor making many tiny edits (low diff_bytes) in a short window, or many edits to the same article. Run to find high-frequency editors and their byte impact.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT JSONExtractString(metadata,'user') AS editor, count() AS edits, sum(JSONExtractInt(metadata,'diff_bytes')) AS net_bytes, countIf(JSONExtractBool(metadata,'is_minor')) AS minor FROM velocity_lab.events WHERE source='wikipedia' GROUP BY editor ORDER BY edits DESC LIMIT 12&quot;)">Run: Editor activity →</button>
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-icon">⚡</div>
+          <div class="scenario-content">
+            <div class="scenario-title">Kafka as a Rate Buffer <span class="scenario-src cross-src">All sources</span></div>
+            <div class="scenario-body">Bluesky produces 20 events/sec but ClickHouse batch-inserts every 2 seconds. Without Kafka, the consumer must match producer speed exactly. Use the controls above to stop Bluesky, then restart it — watch lag spike in the Kafka Anatomy panel then drain as the consumer catches up.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT source, count() AS total, round(count()/dateDiff('second',min(collected_at),max(collected_at)),2) AS avg_eps, formatDateTime(max(collected_at),'%H:%M:%S') AS last_seen FROM velocity_lab.events GROUP BY source ORDER BY avg_eps DESC&quot;)">Run: Throughput by source →</button>
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-icon">🗓</div>
+          <div class="scenario-content">
+            <div class="scenario-title">Multi-Source Event Timeline <span class="scenario-src cross-src">All sources</span></div>
+            <div class="scenario-body">News aggregators (Bloomberg Terminal, Reuters) ingest blockchain confirmations, social signals, and editorial changes into one unified store. ClickHouse's columnar engine makes this cross-source pivot query instant even at millions of rows.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT toStartOfMinute(collected_at) AS minute, countIf(source='solana') AS solana, countIf(source='bluesky') AS bluesky, countIf(source='wikipedia') AS wikipedia FROM velocity_lab.events GROUP BY minute ORDER BY minute DESC LIMIT 10&quot;)">Run: Events/minute pivot →</button>
+          </div>
+        </div>
+
+        <div class="scenario-card">
+          <div class="scenario-icon">🔍</div>
+          <div class="scenario-content">
+            <div class="scenario-title">Full-Text Search Indexing <span class="scenario-src mast-src">Bluesky</span></div>
+            <div class="scenario-body">Search engines like Elasticsearch consume social streams to build near-real-time indexes. The raw post text arriving at 20/sec would typically go: Kafka → Flink tokeniser → Elasticsearch index. Run to see the actual post text flowing through right now.</div>
+            <button class="scenario-q-btn" onclick="runQuery(&quot;SELECT formatDateTime(event_time,'%H:%M:%S') AS posted_at, JSONExtractString(metadata,'handle') AS handle, JSONExtractString(metadata,'language') AS lang, JSONExtractString(metadata,'text') AS post_text FROM velocity_lab.events WHERE source='bluesky' ORDER BY event_time DESC LIMIT 15&quot;)">Run: Raw post stream →</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- ── end Student Lab Panel ──────────────────────────────── -->
 </main>
 
 <footer>IS459 · Velocity Showdown · Kafka Producer on :8000 · Kafka Broker on :9092 · Kafka UI on :8080 · ClickHouse on :8123</footer>
@@ -439,28 +601,46 @@ function update(data) {
   $w('cb-sol', logBar(se)); $w('cb-mast', logBar(me)); $w('cb-wiki', logBar(we));
   $t('cv-sol', se.toFixed(1)+'/s'); $t('cv-mast', me.toFixed(1)+'/s'); $t('cv-wiki', we.toFixed(1)+'/s');
   const ratioEl = document.getElementById('ratio');
-  if(ratioEl) ratioEl.textContent = we>0&&se>0 ? Math.round(se/we)+'×' : se>0 ? '∞' : '—';
+  if(ratioEl) ratioEl.textContent = we>0&&me>0 ? Math.round(me/we)+'×' : me>0 ? '∞' : '—';
   feed('feed-sol',  s.solana.recent||[]);
   feed('feed-mast', s.bluesky.recent||[]);
   feed('feed-wiki', s.wikipedia.recent||[]);
+  syncSourceButtons(data);
+  updateChart(se, me, we);
 }
+
+// Per-feed state: track the last seen top item to detect new arrivals
+const _feedTop = {};
 
 function feed(id, items) {
   const el = document.getElementById(id);
-  if(!el) return;
+  if (!el) return;
   if (!items.length) {
     el.innerHTML = '<div class="feed-empty">No events yet…</div>';
+    _feedTop[id] = null;
     return;
   }
+  // Clear placeholder if present
+  if (el.querySelector('.feed-empty')) el.innerHTML = '';
+
+  const topItem = items[0];
+  if (topItem === _feedTop[id]) return; // nothing new, skip DOM work
+  _feedTop[id] = topItem;
+
+  // Build new row and prepend with slide-in animation
   const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  const ss = String(now.getSeconds()).padStart(2,'0');
-  const ts = `${hh}:${mm}:${ss}`;
-  // Prepend new top item with timestamp, keep rest as-is
-  el.innerHTML = items.map((t, i) =>
-    `<div class="feed-item${i===0?' fresh':''}"><span class="feed-ts">${i===0?ts:''}</span>${esc(t)}</div>`
-  ).join('');
+  const ts = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(n => String(n).padStart(2,'0')).join(':');
+  const row = document.createElement('div');
+  row.className = 'feed-item slide-in fresh';
+  row.innerHTML = `<span class="feed-ts">${ts} </span>${esc(topItem)}`;
+  el.prepend(row);
+
+  // Keep exactly 10 rows
+  while (el.children.length > 10) el.removeChild(el.lastChild);
+
+  // Remove highlight after 2 s
+  setTimeout(() => row.classList.remove('fresh'), 2000);
 }
 
 function fmtOffset(n) {
@@ -558,10 +738,147 @@ function updateCh(d) {
   }
 }
 
+// ── Storage warning ──────────────────────────────────────────
+async function fetchStorage() {
+  try {
+    const r = await fetch(`${API}/clickhouse-storage`);
+    const d = await r.json();
+    const warn = document.getElementById('storage-warn');
+    if (warn) warn.style.display = (d.over_limit || false) ? 'block' : 'none';
+  } catch(e) {}
+}
+
+// ── Student Lab: per-source toggles ─────────────────────────
+const _srcRunning = { solana: true, bluesky: true, wikipedia: true };
+const _srcBtnId   = { solana: 'btn-sol', bluesky: 'btn-mast', wikipedia: 'btn-wiki' };
+const _srcLabel   = { solana: 'Solana', bluesky: 'Bluesky', wikipedia: 'Wikipedia' };
+
+async function toggleSource(source) {
+  const running = _srcRunning[source];
+  try {
+    const endpoint = running ? `/stop/${source}` : `/start/${source}`;
+    await fetch(`${API}${endpoint}`, { method: 'POST' });
+    _srcRunning[source] = !running;
+    updateSourceBtn(source);
+  } catch(e) {}
+}
+
+function updateSourceBtn(source) {
+  const btn = document.getElementById(_srcBtnId[source]);
+  if (!btn) return;
+  const running = _srcRunning[source];
+  btn.textContent = `${running ? '●' : '○'} ${_srcLabel[source]} — ${running ? 'running' : 'paused'}`;
+  btn.classList.toggle('paused', !running);
+}
+
+function toggleLab() {
+  const body   = document.getElementById('lab-body');
+  const toggle = document.getElementById('lab-toggle');
+  const open   = body.classList.toggle('open');
+  toggle.textContent = open ? '▼ collapse' : '▶ expand';
+}
+
+// ── Query Lab ────────────────────────────────────────────────
+async function runQuery(sql) {
+  const resultEl = document.getElementById('query-result');
+  if (!resultEl) return;
+  resultEl.innerHTML = '<div style="font-family:var(--mono);font-size:0.62em;color:var(--mu);padding:8px 0">Running query…</div>';
+  try {
+    const url = `http://localhost:8123/?query=${encodeURIComponent(sql)}&default_format=JSON&user=default&password=velocity_pass`;
+    const r = await fetch(url);
+    if (!r.ok) { resultEl.innerHTML = `<div class="q-error">ClickHouse error: ${r.status}</div>`; return; }
+    const d = await r.json();
+    renderTable(resultEl, d.data || [], d.meta || []);
+  } catch(e) {
+    resultEl.innerHTML = `<div class="q-error">Error: ${e.message}</div>`;
+  }
+}
+
+function renderTable(el, rows, meta) {
+  if (!rows.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:0.62em;color:var(--mu);padding:8px 0">No results.</div>'; return; }
+  const cols = meta.length ? meta.map(m => m.name) : Object.keys(rows[0]);
+  const head = cols.map(c => `<th>${esc(c)}</th>`).join('');
+  const body = rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('')}</tr>`).join('');
+  el.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// ── Status update: sync source button states ─────────────────
+function syncSourceButtons(data) {
+  if (!data || !data.sources) return;
+  for (const [src, info] of Object.entries(data.sources)) {
+    _srcRunning[src] = info.running !== undefined ? info.running : _srcRunning[src];
+    updateSourceBtn(src);
+  }
+  // Also check paused_reason for storage warning fallback
+  const warn = document.getElementById('storage-warn');
+  if (warn && data.paused_reason === 'storage_limit') warn.style.display = 'block';
+}
+
+// ── Velocity over time chart ─────────────────────────────────
+const CHART_POINTS = 60;
+const _chartBuf = {
+  solana:    Array(CHART_POINTS).fill(null),
+  bluesky:   Array(CHART_POINTS).fill(null),
+  wikipedia: Array(CHART_POINTS).fill(null),
+};
+let _velocityChart = null;
+
+function initChart() {
+  const canvas = document.getElementById('velocity-chart');
+  if (!canvas || !window.Chart) return;
+  _velocityChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: Array(CHART_POINTS).fill(''),
+      datasets: [
+        { label: 'Solana',    data: [..._chartBuf.solana],    borderColor: '#4ABFB8', backgroundColor: 'rgba(74,191,184,0.07)',  borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.35 },
+        { label: 'Bluesky',   data: [..._chartBuf.bluesky],   borderColor: '#E8A87C', backgroundColor: 'rgba(232,168,124,0.07)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.35 },
+        { label: 'Wikipedia', data: [..._chartBuf.wikipedia],  borderColor: '#7FB5A0', backgroundColor: 'rgba(127,181,160,0.07)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.35 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 0 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0D1820', borderColor: '#2A3F55', borderWidth: 1,
+          titleColor: '#6A8BA8', bodyColor: '#E8E2D9', padding: 8,
+          callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '—'}/s` },
+        },
+      },
+      scales: {
+        x: { grid: { color: 'rgba(42,63,85,0.4)', drawTicks: false }, ticks: { display: false }, border: { color: '#2A3F55' } },
+        y: {
+          min: 0,
+          grid: { color: 'rgba(42,63,85,0.4)', drawTicks: false },
+          border: { color: '#2A3F55' },
+          ticks: { color: '#6A8BA8', font: { family: "'JetBrains Mono'", size: 10 }, maxTicksLimit: 5, callback: v => v + '/s' },
+        },
+      },
+    },
+  });
+}
+
+function updateChart(se, me, we) {
+  if (!_velocityChart) return;
+  _chartBuf.solana.push(se > 0 ? se : null);    _chartBuf.solana.shift();
+  _chartBuf.bluesky.push(me > 0 ? me : null);   _chartBuf.bluesky.shift();
+  _chartBuf.wikipedia.push(we > 0 ? we : null); _chartBuf.wikipedia.shift();
+  _velocityChart.data.datasets[0].data = [..._chartBuf.solana];
+  _velocityChart.data.datasets[1].data = [..._chartBuf.bluesky];
+  _velocityChart.data.datasets[2].data = [..._chartBuf.wikipedia];
+  _velocityChart.update('none');
+}
+
 window.onload = function() {
+  initChart();
   fetchStatus();
   fetchChStats();
+  fetchStorage();
   readyPoller = setInterval(checkKafkaReady, 3000);
+  setInterval(fetchStorage, 10000);
   checkKafkaReady();
 };
 </script>
