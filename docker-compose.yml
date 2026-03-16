@@ -1,7 +1,5 @@
-version: "3.9"
-
 # ── Velocity Showdown · Docker Compose ─────────────────────────
-# 5 services: Kafka (KRaft) · Kafka UI · Producer · Consumer · ClickHouse
+# 6 services: Kafka (KRaft) · Kafka UI · ClickHouse · Collector · Consumer · Dashboard
 # One command: docker compose up --build -d
 
 services:

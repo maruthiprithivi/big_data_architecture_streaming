@@ -1,0 +1,12 @@
+$ErrorActionPreference = "Stop"
+Write-Host "==> Velocity Showdown — Quick Start"
+docker compose up --build -d
+Write-Host ""
+Write-Host "Services starting... (Kafka takes ~30 s to become healthy)"
+Write-Host ""
+Write-Host "  Dashboard  ->  http://localhost:3001"
+Write-Host "  Kafka UI   ->  http://localhost:8080"
+Write-Host "  ClickHouse ->  http://localhost:8123/play"
+Write-Host "  Collector  ->  http://localhost:8000/docs"
+Write-Host ""
+Write-Host "Open the dashboard and click Start Collection when the broker shows connected"

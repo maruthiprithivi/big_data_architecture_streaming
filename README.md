@@ -2,18 +2,41 @@
 
 A one-command Docker Compose lab that streams live data from three public sources into Kafka and ClickHouse — letting students see event-velocity differences in real time.
 
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS, Windows, or Linux)
+- Docker Compose v2 (bundled with Docker Desktop)
+
+> **Windows note:** Docker Desktop must be running before you execute any commands. WSL 2 backend is recommended.
+
 ## Quick Start
+
+**macOS / Linux (bash):**
 
 ```bash
 ./quickstart.sh          # builds and starts all containers
 # open http://localhost:3001 — click ▶ Start Collection
 ```
 
-To tear everything down and free disk space:
+**Windows (CMD):**
+
+```cmd
+quickstart.bat
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\quickstart.ps1
+```
+
+**Or use Docker Compose directly (any platform):**
 
 ```bash
-./cleanup.sh
+docker compose up --build -d
 ```
+
+Then open <http://localhost:3001> and click **Start Collection** when the broker shows connected.
 
 ---
 
@@ -93,8 +116,42 @@ The Relative Velocity panel shows a log-scale bar chart. Observe that Bluesky (~
 
 ## Cleanup
 
+**macOS / Linux:**
+
 ```bash
 ./cleanup.sh    # stops containers, deletes ClickHouse volume, removes built images
 ```
 
+**Windows (CMD):**
+
+```cmd
+cleanup.bat
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\cleanup.ps1
+```
+
+**Or manually:**
+
+```bash
+docker compose down --volumes --remove-orphans
+docker compose down --rmi local
+```
+
 > **Storage guard:** Collection auto-pauses if ClickHouse disk usage exceeds 5 GB (configurable via `STORAGE_LIMIT_GB` env var in `.env`).
+
+---
+
+## Platform Support
+
+| Platform | Status | Script |
+|---|---|---|
+| macOS | Tested | `./quickstart.sh` / `./cleanup.sh` |
+| Windows (CMD) | Tested | `quickstart.bat` / `cleanup.bat` |
+| Windows (PowerShell) | Tested | `.\quickstart.ps1` / `.\cleanup.ps1` |
+| Linux | Supported | `./quickstart.sh` / `./cleanup.sh` |
+
+All application code runs inside Docker containers and is fully platform-independent. The helper scripts simply wrap `docker compose` commands for convenience.

@@ -1,0 +1,9 @@
+# Shell scripts must keep LF endings on all platforms
+*.sh text eol=lf
+
+# Batch and PowerShell scripts use CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Default: auto-detect
+* text=auto
